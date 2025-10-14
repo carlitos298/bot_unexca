@@ -66,5 +66,5 @@ app = Flask(__name__)
 def home():
     return "Bot de UNEXCA activo ✅"
 
-if name == 'main':
+if __name__ == '__main__':
     main()
