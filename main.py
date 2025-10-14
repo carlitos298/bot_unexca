@@ -60,7 +60,7 @@ def main():
     updater.idle()
 
 # Para mantener vivo el bot en Render
-app = Flask(name)
+app = Flask(__name__)
 
 @app.route('/')
 def home():
