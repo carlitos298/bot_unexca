@@ -51,7 +51,7 @@ def handle_message(update: Update, context: CallbackContext):
 
 def main():
     token = os.getenv("TELEGRAM_TOKEN")
-    updater = Updater(token, use_context=True)
+    updater = Updater(token)
     dp = updater.dispatcher
 
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
