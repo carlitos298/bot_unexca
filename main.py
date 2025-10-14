@@ -51,7 +51,7 @@ def handle_message(update: Update, context: CallbackContext):
 
 def main():
     token = os.getenv("TELEGRAM_TOKEN")
-   from telegram.ext import ApplicationBuilder
+    from telegram.ext import ApplicationBuilder
 
 app = ApplicationBuilder().token(token).build()
     dp = updater.dispatcher
