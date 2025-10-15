@@ -1,4 +1,5 @@
 import os
+import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 from flask import Flask
@@ -22,7 +23,7 @@ info = {
     "servicios": "Orientación académica, biblioteca, comedor y soporte tecnológico."
 }
 
-# Respuesta a mensajes
+# Manejo de mensajes
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
 
@@ -37,33 +38,35 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif any(word in text for word in ["adiós", "chao", "bye"]):
         await update.message.reply_text("¡Adiós! Que tengas un buen día 😄")
     else:
-        found = False
         for key, value in info.items():
             if key in text:
                 await update.message.reply_text(value)
-                found = True
-                break
-        if not found:
-            await update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
+                return
+        await update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
 
-# Inicialización del bot
-async def main():
+# Función principal del bot
+async def start_bot():
     token = os.getenv("TELEGRAM_TOKEN")
+    if not token:
+        print("❌ ERROR: La variable de entorno TELEGRAM_TOKEN no está definida.")
+        return
+
     app = ApplicationBuilder().token(token).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    print("✅ Bot iniciado correctamente.")
+
+    print("✅ Bot de UNEXCA activo")
     await app.run_polling()
 
-# Flask para mantener activo el bot en Render
+# Flask para mantener Render activo
 server = Flask(__name__)
 
 @server.route('/')
 def home():
     return "Bot de UNEXCA activo ✅"
 
+# Arranque
 if __name__ == '__main__':
-    import asyncio
-    # Iniciar bot en segundo plano
-    asyncio.get_event_loop().create_task(main())
-    # Iniciar servidor Flask
+    # Inicia bot en segundo plano
+    asyncio.get_event_loop().create_task(start_bot())
+    # Inicia servidor Flask
     server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
