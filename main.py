@@ -1,6 +1,6 @@
 import os
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, filters, CallbackContext
+from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 from flask import Flask
 
 # Información del centro universitario
@@ -22,51 +22,48 @@ info = {
     "servicios": "Orientación académica, biblioteca, comedor y soporte tecnológico."
 }
 
-# Respuestas básicas
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text("¡Hola! En qué puedo ayudarte?")
-
-def handle_message(update: Update, context: CallbackContext):
+# Respuesta a mensajes
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
 
     if "hola" in text:
-        update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
+        await update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
     elif "ayuda" in text:
-        update.message.reply_text(
+        await update.message.reply_text(
             "Puedes preguntarme por: horarios, ubicación, teléfono, correo, inscripción, "
             "resagado, beca, constancia, requisitos, eventos, misión, visión, historia, "
             "carreras o servicios. 😊"
         )
-    elif "adiós" in text or "chao" in text or "bye" in text:
-        update.message.reply_text("¡Adiós! Que tengas un buen día 😄")
+    elif any(word in text for word in ["adiós", "chao", "bye"]):
+        await update.message.reply_text("¡Adiós! Que tengas un buen día 😄")
     else:
         found = False
         for key, value in info.items():
             if key in text:
-                update.message.reply_text(value)
+                await update.message.reply_text(value)
                 found = True
                 break
         if not found:
-            update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
+            await update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
 
-def main():
+# Inicialización del bot
+async def main():
     token = os.getenv("TELEGRAM_TOKEN")
-    from telegram.ext import ApplicationBuilder
+    app = ApplicationBuilder().token(token).build()
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    print("✅ Bot iniciado correctamente.")
+    await app.run_polling()
 
-app = ApplicationBuilder().token(token).build()
-dp = updater.dispatcher
+# Flask para mantener activo el bot en Render
+server = Flask(__name__)
 
-dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-
-updater.start_polling()
-updater.idle()
-
-# Para mantener vivo el bot en Render
-app = Flask(__name__)
-
-@app.route('/')
+@server.route('/')
 def home():
     return "Bot de UNEXCA activo ✅"
 
 if __name__ == '__main__':
-    main()
+    import asyncio
+    # Iniciar bot en segundo plano
+    asyncio.get_event_loop().create_task(main())
+    # Iniciar servidor Flask
+    server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
