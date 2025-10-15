@@ -54,7 +54,7 @@ def main():
     from telegram.ext import ApplicationBuilder
 
 app = ApplicationBuilder().token(token).build()
-    dp = updater.dispatcher
+dp = updater.dispatcher
 
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
