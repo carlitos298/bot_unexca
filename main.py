@@ -56,7 +56,7 @@ def main():
 app = ApplicationBuilder().token(token).build()
 dp = updater.dispatcher
 
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
     updater.start_polling()
     updater.idle()
