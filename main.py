@@ -58,8 +58,8 @@ dp = updater.dispatcher
 
 dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
-    updater.start_polling()
-    updater.idle()
+updater.start_polling()
+updater.idle()
 
 # Para mantener vivo el bot en Render
 app = Flask(__name__)
