@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request
-from telegram import Update, Bot
-from telegram.ext import Dispatcher, CommandHandler, MessageHandler, filters
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
 # Información del centro universitario
 info = {
@@ -23,60 +23,57 @@ info = {
 }
 
 # Funciones del bot
-def start(update: Update, context):
-    update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
 
-def handle_message(update: Update, context):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
     if "hola" in text:
-        update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
+        await update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
     elif "ayuda" in text:
-        update.message.reply_text(
+        await update.message.reply_text(
             "Puedes preguntarme por: horarios, ubicación, teléfono, correo, inscripción, "
             "resagado, beca, constancia, requisitos, eventos, misión, visión, historia, "
             "carreras o servicios. 😊"
         )
     elif any(word in text for word in ["adiós", "chao", "bye"]):
-        update.message.reply_text("¡Adiós! Que tengas un buen día 😄")
+        await update.message.reply_text("¡Adiós! Que tengas un buen día 😄")
     else:
         for key, value in info.items():
             if key in text:
-                update.message.reply_text(value)
+                await update.message.reply_text(value)
                 return
-        update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
-
-# Configuración del bot
-TOKEN = os.environ.get("TELEGRAM_TOKEN")
-if not TOKEN:
-    raise ValueError("❌ ERROR: La variable de entorno TELEGRAM_TOKEN no está definida.")
-
-bot = Bot(TOKEN)
-dispatcher = Dispatcher(bot, None, workers=0, use_context=True)
-dispatcher.add_handler(CommandHandler("start", start))
-dispatcher.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        await update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
 
 # Flask
 app = Flask(__name__)
 
-@app.route('/', methods=['GET'])
+@app.route('/')
 def home():
     return "Bot de UNEXCA activo ✅"
 
-@app.route(f'/{TOKEN}', methods=['POST'])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), bot)
-    dispatcher.process_update(update)
+@app.route(f'/{os.environ.get("TELEGRAM_TOKEN")}', methods=['POST'])
+async def webhook():
+    data = request.get_json(force=True)
+    update = Update.de_json(data, application.bot)
+    await application.update_queue.put(update)
     return "ok", 200
 
-# Set webhook en Telegram (solo una vez)
+# Inicializar bot
+TOKEN = os.environ.get("TELEGRAM_TOKEN")
+if not TOKEN:
+    raise ValueError("❌ ERROR: TELEGRAM_TOKEN no definido")
+
+application = ApplicationBuilder().token(TOKEN).build()
+application.add_handler(CommandHandler("start", start))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+# Configurar webhook al iniciar Flask
 @app.before_first_request
-def set_webhook():
-    # URL pública de tu servicio en Render
+async def setup_webhook():
     url = os.environ.get("RENDER_EXTERNAL_URL")
     webhook_url = f"{url}/{TOKEN}"
-    bot.set_webhook(webhook_url)
+    await application.bot.set_webhook(webhook_url)
     print(f"✅ Webhook configurado en {webhook_url}")
-
-# Ejecutar Flask
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    # Arranca bot en background
+    application.run_polling()
