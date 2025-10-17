@@ -1,8 +1,8 @@
 import os
 import asyncio
-from flask import Flask, request
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
+from flask import Flask
 
 # Información del centro universitario
 info = {
@@ -23,9 +23,10 @@ info = {
     "servicios": "Orientación académica, biblioteca, comedor y soporte tecnológico."
 }
 
-# Función para responder mensajes
+# Función que responde los mensajes
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
+
     if "hola" in text:
         await update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
     elif "ayuda" in text:
@@ -46,31 +47,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not found:
             await update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
 
-# Token del bot
-TOKEN = os.getenv("TELEGRAM_TOKEN")
-if not TOKEN:
-    raise ValueError("❌ ERROR: TELEGRAM_TOKEN no definido")
+# Función principal del bot
+async def main_bot():
+    token = os.getenv("TELEGRAM_TOKEN")
+    if not token:
+        raise ValueError("❌ ERROR: TELEGRAM_TOKEN no definido")
+    
+    app = ApplicationBuilder().token(token).build()
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
+    print("✅ Bot iniciado correctamente.")
+    await app.run_polling()
 
-# Inicialización del bot
-bot_app = ApplicationBuilder().token(TOKEN).build()
-bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-# Flask para mantener activo el bot
+# Flask para mantener activo el bot en Render
 server = Flask(__name__)
 
-# Ruta principal para verificar si el servidor está activo
 @server.route('/')
 def home():
     return "Bot de UNEXCA activo ✅"
 
-# Ruta para recibir mensajes del webhook
-@server.route(f'/{TOKEN}', methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), bot_app.bot)
-    asyncio.get_event_loop().run_until_complete(bot_app.update_queue.put(update))
-    return "OK"
-
-# Iniciar servidor Flask
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    server.run(host="0.0.0.0", port=port)
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    loop.create_task(main_bot())  # Ejecuta el bot en segundo plano
+    server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
