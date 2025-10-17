@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 from flask import Flask
 
-# --- Información del centro universitario ---
+# Información del centro universitario
 info = {
     "horarios": "Sábados desde las 8:00 am a 4:00 pm.",
     "ubicación": "M93G+QMW, Puerto Ayacucho 7101, Amazonas, Venezuela.",
@@ -23,7 +23,7 @@ info = {
     "servicios": "Orientación académica, biblioteca, comedor y soporte tecnológico."
 }
 
-# --- Función principal del bot ---
+# Función para responder mensajes
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
 
@@ -38,13 +38,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif any(word in text for word in ["adiós", "chao", "bye"]):
         await update.message.reply_text("¡Adiós! Que tengas un buen día 😄")
     else:
+        found = False
         for key, value in info.items():
             if key in text:
                 await update.message.reply_text(value)
-                return
-        await update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
+                found = True
+                break
+        if not found:
+            await update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
 
-# --- Inicialización del bot ---
+# Función asincrónica para iniciar el bot
 async def start_bot():
     token = os.getenv("TELEGRAM_TOKEN")
     if not token:
@@ -52,20 +55,21 @@ async def start_bot():
 
     app = ApplicationBuilder().token(token).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    print("✅ Bot iniciado correctamente.")
+    print("🤖 Bot de UNEXCA iniciado correctamente y escuchando mensajes...")
     await app.run_polling()
 
-# --- Servidor Flask ---
-server = Flask(__name__)
+# Servidor Flask
+app = Flask(__name__)
 
-@server.route('/')
+@app.route('/')
 def home():
     return "Bot de UNEXCA activo ✅"
 
-# --- Ejecución ---
+# Iniciar Flask y el bot
 if __name__ == '__main__':
-    # Inicia el bot en segundo plano
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     loop.create_task(start_bot())
-    # Ejecuta Flask
-    server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
+    # Ejecutar servidor Flask
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
