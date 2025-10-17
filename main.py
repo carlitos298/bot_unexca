@@ -23,10 +23,9 @@ info = {
     "servicios": "Orientación académica, biblioteca, comedor y soporte tecnológico."
 }
 
-# Función para responder mensajes
+# Función para manejar los mensajes
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
-
     if "hola" in text:
         await update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
     elif "ayuda" in text:
@@ -38,38 +37,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif any(word in text for word in ["adiós", "chao", "bye"]):
         await update.message.reply_text("¡Adiós! Que tengas un buen día 😄")
     else:
-        found = False
         for key, value in info.items():
             if key in text:
                 await update.message.reply_text(value)
-                found = True
-                break
-        if not found:
-            await update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
+                return
+        await update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
 
-# Función asincrónica para iniciar el bot
+# Inicializar el bot
 async def start_bot():
     token = os.getenv("TELEGRAM_TOKEN")
     if not token:
         raise ValueError("❌ ERROR: TELEGRAM_TOKEN no definido")
-
     app = ApplicationBuilder().token(token).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     print("🤖 Bot de UNEXCA iniciado correctamente y escuchando mensajes...")
     await app.run_polling()
 
-# Servidor Flask
+# Flask para mantener activo el servidor
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "Bot de UNEXCA activo ✅"
 
-# Iniciar Flask y el bot
+# Iniciar bot y servidor juntos
 if __name__ == '__main__':
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    loop = asyncio.get_event_loop()
     loop.create_task(start_bot())
-
-    # Ejecutar servidor Flask
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
