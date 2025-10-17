@@ -1,9 +1,10 @@
 import os
-from flask import Flask, request
+import asyncio
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
+from flask import Flask
 
-# Información del centro universitario
+# --- Información del centro universitario ---
 info = {
     "horarios": "Sábados desde las 8:00 am a 4:00 pm.",
     "ubicación": "M93G+QMW, Puerto Ayacucho 7101, Amazonas, Venezuela.",
@@ -22,12 +23,10 @@ info = {
     "servicios": "Orientación académica, biblioteca, comedor y soporte tecnológico."
 }
 
-# Funciones del bot
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
-
+# --- Función principal del bot ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
+
     if "hola" in text:
         await update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
     elif "ayuda" in text:
@@ -45,35 +44,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
         await update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
 
-# Flask
-app = Flask(__name__)
+# --- Inicialización del bot ---
+async def start_bot():
+    token = os.getenv("TELEGRAM_TOKEN")
+    if not token:
+        raise ValueError("❌ ERROR: TELEGRAM_TOKEN no definido")
 
-@app.route('/')
+    app = ApplicationBuilder().token(token).build()
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    print("✅ Bot iniciado correctamente.")
+    await app.run_polling()
+
+# --- Servidor Flask ---
+server = Flask(__name__)
+
+@server.route('/')
 def home():
     return "Bot de UNEXCA activo ✅"
 
-@app.route(f'/{os.environ.get("TELEGRAM_TOKEN")}', methods=['POST'])
-async def webhook():
-    data = request.get_json(force=True)
-    update = Update.de_json(data, application.bot)
-    await application.update_queue.put(update)
-    return "ok", 200
-
-# Inicializar bot
-TOKEN = os.environ.get("TELEGRAM_TOKEN")
-if not TOKEN:
-    raise ValueError("❌ ERROR: TELEGRAM_TOKEN no definido")
-
-application = ApplicationBuilder().token(TOKEN).build()
-application.add_handler(CommandHandler("start", start))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-# Configurar webhook al iniciar Flask
-@app.before_first_request
-async def setup_webhook():
-    url = os.environ.get("RENDER_EXTERNAL_URL")
-    webhook_url = f"{url}/{TOKEN}"
-    await application.bot.set_webhook(webhook_url)
-    print(f"✅ Webhook configurado en {webhook_url}")
-    # Arranca bot en background
-    application.run_polling()
+# --- Ejecución ---
+if __name__ == '__main__':
+    # Inicia el bot en segundo plano
+    loop = asyncio.get_event_loop()
+    loop.create_task(start_bot())
+    # Ejecuta Flask
+    server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
