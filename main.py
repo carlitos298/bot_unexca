@@ -1,82 +1,53 @@
 import os
-from flask import Flask, request
-from telegram import Update, Bot
-from telegram.ext import Dispatcher, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update
+from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 
-# Información del centro universitario
-info = {
+# Respuestas predefinidas
+INFO = {
     "horarios": "Sábados desde las 8:00 am a 4:00 pm.",
-    "ubicación": "M93G+QMW, Puerto Ayacucho 7101, Amazonas, Venezuela.",
+    "ubicación": "M93G+QMW, Puerto Ayacucho 7101, Amazonas.",
     "teléfono": "04269002328",
     "correo": "contacto@unexca.org",
-    "inscripción": "Puedes inscribirte directamente en la sede o a través del correo contacto@unexca.org.",
-    "resagado": "Los estudiantes rezagados deben comunicarse con la coordinación académica.",
-    "beca": "Se otorgan becas según el rendimiento académico y necesidad económica.",
-    "constancia": "Las constancias se solicitan en la oficina administrativa o por correo.",
-    "requisitos": "Cédula, notas certificadas, título de bachiller, y foto tamaño carnet.",
-    "eventos": "Revisa los eventos actuales en la sede principal o en redes sociales.",
-    "misión": "Formar profesionales competentes con valores éticos y compromiso social.",
-    "visión": "Ser una institución líder en educación universitaria integral en Venezuela.",
-    "historia": "La UNEXCA fue creada para democratizar el acceso a la educación superior.",
+    "inscripción": "La inscripción se realiza en la sede principal con los requisitos correspondientes.",
+    "resagado": "Los estudiantes rezagados pueden inscribirse con autorización de la coordinación académica.",
+    "beca": "Se ofrecen becas según el rendimiento académico y situación socioeconómica.",
+    "constancia": "Las constancias se solicitan en el departamento de control de estudios.",
+    "requisitos": "Copia de cédula, notas certificadas, fotos tipo carnet y título de bachiller.",
+    "eventos": "La institución realiza eventos culturales, deportivos y tecnológicos durante el año.",
+    "misión": "Formar profesionales con ética, compromiso social y competencia tecnológica.",
+    "visión": "Ser una universidad reconocida por su excelencia académica e innovación.",
+    "historia": "La UNEXCA nació como un proyecto educativo para fomentar el desarrollo regional.",
     "carreras": "Ingeniería en Sistemas, Turismo y Educación.",
-    "servicios": "Orientación académica, biblioteca, comedor y soporte tecnológico."
+    "servicios": "Biblioteca, comedor, wifi, atención estudiantil y actividades extracurriculares."
 }
 
-# Función /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
-
-# Función para manejar mensajes
+# Función principal de mensajes
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
+
     if "hola" in text:
-        await update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
-    elif "ayuda" in text:
-        await update.message.reply_text(
-            "Puedes preguntarme por: horarios, ubicación, teléfono, correo, inscripción, "
-            "resagado, beca, constancia, requisitos, eventos, misión, visión, historia, "
-            "carreras o servicios. 😊"
-        )
-    elif any(word in text for word in ["adiós", "chao", "bye"]):
-        await update.message.reply_text("¡Adiós! Que tengas un buen día 😄")
-    else:
-        for key, value in info.items():
-            if key in text:
-                await update.message.reply_text(value)
-                return
-        await update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
+        await update.message.reply_text("¡Hola! 👋 ¿En qué puedo ayudarte? Puedes preguntar por horarios, carreras, requisitos, becas o servicios.")
+        return
 
-# Inicialización de Flask
-server = Flask(__name__)
+    if "adiós" in text or "chao" in text:
+        await update.message.reply_text("¡Adiós! 👋 Que tengas un excelente día.")
+        return
 
-# Obtener token de entorno
-TOKEN = os.environ.get("TELEGRAM_TOKEN")
-if not TOKEN:
-    raise ValueError("❌ TELEGRAM_TOKEN no definido en variables de entorno")
+    if "ayuda" in text:
+        await update.message.reply_text("Puedes preguntarme sobre: horarios, ubicación, carreras, requisitos, becas, servicios, misión, visión y más.")
+        return
 
-bot = Bot(token=TOKEN)
-dispatcher = Dispatcher(bot, None, workers=0)  # workers=0 porque Render maneja las peticiones
+    for key, value in INFO.items():
+        if key in text:
+            await update.message.reply_text(value)
+            return
 
-# Añadir handlers
-dispatcher.add_handler(CommandHandler("start", start))
-dispatcher.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    await update.message.reply_text("No entiendo lo que dices 🤔. Escribe 'ayuda' para ver las opciones disponibles.")
 
-# Ruta principal del webhook
-@server.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), bot)
-    dispatcher.process_update(update)
-    return "ok"
-
-# Ruta para prueba de servidor
-@server.route('/')
-def home():
-    return "Bot de UNEXCA activo ✅"
-
-# Configurar webhook con Telegram
+# Iniciar el bot
 if __name__ == "__main__":
-    # Tu dominio en Render (ejemplo): https://tu-app.onrender.com
-    WEBHOOK_URL = f"{os.environ.get('RENDER_EXTERNAL_URL')}/{TOKEN}"
-    bot.delete_webhook()
-    bot.set_webhook(WEBHOOK_URL)
-    server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    TOKEN = os.getenv("TELEGRAM_TOKEN")
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    print("🤖 Bot iniciado correctamente...")
+    app.run_polling()
