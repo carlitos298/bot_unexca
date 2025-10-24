@@ -1,8 +1,7 @@
 import os
-import asyncio
-from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
-from flask import Flask
+from flask import Flask, request
+from telegram import Update, Bot
+from telegram.ext import Dispatcher, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Información del centro universitario
 info = {
@@ -23,10 +22,13 @@ info = {
     "servicios": "Orientación académica, biblioteca, comedor y soporte tecnológico."
 }
 
-# Función que responde los mensajes
+# Función /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
+
+# Función para manejar mensajes
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
-
     if "hola" in text:
         await update.message.reply_text("¡Hola! ¿En qué puedo ayudarte?")
     elif "ayuda" in text:
@@ -38,35 +40,43 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif any(word in text for word in ["adiós", "chao", "bye"]):
         await update.message.reply_text("¡Adiós! Que tengas un buen día 😄")
     else:
-        found = False
         for key, value in info.items():
             if key in text:
                 await update.message.reply_text(value)
-                found = True
-                break
-        if not found:
-            await update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
+                return
+        await update.message.reply_text("No entiendo eso 😅. Escribe 'ayuda' para ver qué puedo responder.")
 
-# Función principal del bot
-async def main_bot():
-    token = os.getenv("TELEGRAM_TOKEN")
-    if not token:
-        raise ValueError("❌ ERROR: TELEGRAM_TOKEN no definido")
-    
-    app = ApplicationBuilder().token(token).build()
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    print("✅ Bot iniciado correctamente.")
-    await app.run_polling()
-
-# Flask para mantener activo el bot en Render
+# Inicialización de Flask
 server = Flask(__name__)
 
+# Obtener token de entorno
+TOKEN = os.environ.get("TELEGRAM_TOKEN")
+if not TOKEN:
+    raise ValueError("❌ TELEGRAM_TOKEN no definido en variables de entorno")
+
+bot = Bot(token=TOKEN)
+dispatcher = Dispatcher(bot, None, workers=0)  # workers=0 porque Render maneja las peticiones
+
+# Añadir handlers
+dispatcher.add_handler(CommandHandler("start", start))
+dispatcher.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+# Ruta principal del webhook
+@server.route(f"/{TOKEN}", methods=["POST"])
+def webhook():
+    update = Update.de_json(request.get_json(force=True), bot)
+    dispatcher.process_update(update)
+    return "ok"
+
+# Ruta para prueba de servidor
 @server.route('/')
 def home():
     return "Bot de UNEXCA activo ✅"
 
+# Configurar webhook con Telegram
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.create_task(main_bot())  # Ejecuta el bot en segundo plano
+    # Tu dominio en Render (ejemplo): https://tu-app.onrender.com
+    WEBHOOK_URL = f"{os.environ.get('RENDER_EXTERNAL_URL')}/{TOKEN}"
+    bot.delete_webhook()
+    bot.set_webhook(WEBHOOK_URL)
     server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
