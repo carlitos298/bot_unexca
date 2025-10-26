@@ -5,7 +5,7 @@ from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTyp
 # Respuestas predefinidas
 INFO = {
     "horarios": "Sábados desde las 8:00 am a 4:00 pm.",
-    "ubicación": "M93G+QMW, Puerto Ayacucho 7101, Amazonas.",
+    "ubicación": "Monte Bello, centro, Puerto Ayacucho, Amazonas.",
     "teléfono": "04269002328",
     "correo": "contacto@unexca.org",
     "inscripción": "La inscripción se realiza en la sede principal con los requisitos correspondientes.",
@@ -45,7 +45,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("No entiendo lo que dices 🤔. Escribe 'ayuda' para ver las opciones disponibles.")
 
 # Iniciar el bot
-if __name__ == "__main__":
+if name == "main":
     TOKEN = os.getenv("TELEGRAM_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
